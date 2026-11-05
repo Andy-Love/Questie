@@ -338,6 +338,30 @@ local debugMessagesLocales = {
         ["zhCN"] = "已使用其他坐标插件，可能因发生冲突而影响游戏。请停用世界地图和小地图坐标，日后都可以在设定中重新启用",
         ["zhTW"] = "已有使用其他座標插件，可能會發生衝突而影響遊戲。請停用世界地圖和小地圖座標，日後都可以在設定中重新啟用",
     },
+    ["Recording started..."] = {
+        ["enUS"] = true,
+        ["deDE"] = "Aufzeichnung gestartet...", -- 🤖
+        ["esES"] = "Grabación iniciada...", -- 🤖
+        ["esMX"] = "Grabación iniciada...", -- 🤖
+        ["frFR"] = "Enregistrement démarré…", -- 🤖
+        ["koKR"] = "기록을 시작했습니다...", -- 🤖
+        ["ptBR"] = "Gravação iniciada...", -- 🤖
+        ["ruRU"] = "Запись начата...", -- 🤖
+        ["zhCN"] = "已开始记录……", -- 🤖
+        ["zhTW"] = "已開始記錄……", -- 🤖
+    },
+    ["Recording stopped"] = {
+        ["enUS"] = true,
+        ["deDE"] = "Aufzeichnung gestoppt", -- 🤖
+        ["esES"] = "Grabación detenida", -- 🤖
+        ["esMX"] = "Grabación detenida", -- 🤖
+        ["frFR"] = "Enregistrement arrêté", -- 🤖
+        ["koKR"] = "기록을 중지했습니다", -- 🤖
+        ["ptBR"] = "Gravação interrompida", -- 🤖
+        ["ruRU"] = "Запись остановлена", -- 🤖
+        ["zhCN"] = "已停止记录", -- 🤖
+        ["zhTW"] = "已停止記錄", -- 🤖
+    },
     ["Missing objective data for quest "] = {
         ["enUS"] = true,
         ["deDE"] = "Fehlende Ziel-Daten für Quest ",
