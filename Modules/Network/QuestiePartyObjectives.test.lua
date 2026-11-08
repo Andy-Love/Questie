@@ -619,6 +619,107 @@ describe("QuestiePartyObjectives", function()
         end)
     end)
 
+    describe("quests the local player also has", function()
+        it("should draw a party member's objective the local player already finished", function()
+            givenPartyQuest(2)
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = {objectives = {{finished = true}}}}
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(1, #drawnObjectives)
+        end)
+
+        it("should not draw a party member's objective the local player still needs", function()
+            givenPartyQuest(2)
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = {objectives = {{finished = false}}}}
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(0, #drawnObjectives)
+        end)
+
+        it("should draw the party's objectives once the local player's quest is complete", function()
+            givenPartyQuest(2)
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = {isComplete = 1, objectives = {}}}
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(1, #drawnObjectives)
+        end)
+
+        it("should draw a party member's objective after the local player finished it", function()
+            givenPartyQuest(2)
+            local localObjective = {finished = false}
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = {objectives = {localObjective}}}
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            localObjective.finished = true
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(1, #drawnObjectives)
+        end)
+
+        it("should draw the party's objectives when the local player's quest failed", function()
+            givenPartyQuest(2)
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = {isComplete = -1, objectives = {{finished = false}}}}
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(1, #drawnObjectives)
+        end)
+
+        it("should draw special objectives once all of the local player's objectives are finished", function()
+            givenPartyQuest(2)
+            QuestieDB.GetQuest = function()
+                return {
+                    Id = QUEST_ID,
+                    Color = {1, 1, 1},
+                    ObjectiveData = {[1] = {Type = "monster", Id = 100, Text = "Kill things"}},
+                    SpecialObjectives = {
+                        {Id = 200, Type = "object", Description = "Use the thing", spawnList = {}},
+                    },
+                }
+            end
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = {isComplete = 0, objectives = {{finished = true}}}}
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(2, #drawnObjectives)
+        end)
+
+        it("should draw special objectives only once the local player's quest is complete", function()
+            givenPartyQuest(2)
+            QuestieDB.GetQuest = function()
+                return {
+                    Id = QUEST_ID,
+                    Color = {1, 1, 1},
+                    ObjectiveData = {[1] = {Type = "monster", Id = 100, Text = "Kill things"}},
+                    SpecialObjectives = {
+                        {Id = 200, Type = "object", Description = "Use the thing", spawnList = {}},
+                    },
+                }
+            end
+            local localEntry = {objectives = {{finished = true}, {finished = false}}}
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = localEntry}
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            assert.is_equal(1, #drawnObjectives)
+
+            localEntry.isComplete = 1
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(3, #drawnObjectives)
+        end)
+    end)
+
     describe("unloading", function()
         local pendingTimers
 
