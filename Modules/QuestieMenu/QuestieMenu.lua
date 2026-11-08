@@ -467,6 +467,8 @@ function QuestieMenu.buildTownsfolkMenu()
     return townsfolkMenu
 end
 
+---Shows the main Questie menu and its optional QuestieTrace entry.
+---@param hideDelay number|nil
 function QuestieMenu:Show(hideDelay)
     if not Questie.db.profile.townsfolkConfig then
         Questie.db.profile.townsfolkConfig = {}

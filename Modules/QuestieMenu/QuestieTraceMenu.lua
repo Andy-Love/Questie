@@ -4,6 +4,7 @@ local QuestieTraceMenu = QuestieLoader:CreateModule("QuestieTraceMenu")
 local TRACE_RUNNING_COLOR = { 0.25, 1.0, 0.25 }
 local TRACE_STOPPED_COLOR = { 1.0, 0.25, 0.25 }
 
+---Returns whether QuestieTrace currently has an active capture.
 ---@param trace QuestieTraceCore
 ---@return boolean isRunning
 local function getIsRunning(trace)
@@ -15,6 +16,7 @@ local function getIsRunning(trace)
     return ok and type(status) == "table" and status.isRunning == true
 end
 
+---Colors the dropdown indicator according to the current capture state.
 ---@param button Button
 ---@param isRunning boolean
 local function tintButton(button, isRunning)
@@ -35,6 +37,7 @@ local function tintButton(button, isRunning)
     uncheck:SetTexCoord(0.0, 0.5, 0.5, 1.0)
 end
 
+---Refreshes the dropdown indicator after LibUIDropDownMenu finishes its click update.
 ---@param button Button
 ---@param trace QuestieTraceCore
 local function deferRefresh(button, trace)
@@ -47,6 +50,7 @@ local function deferRefresh(button, trace)
     end
 end
 
+---Builds the optional QuestieTrace entry for the Questie menu.
 ---@param onClick fun(trace: QuestieTraceCore, button: string?)
 ---@return table?
 function QuestieTraceMenu.Build(onClick)
@@ -76,6 +80,7 @@ function QuestieTraceMenu.Build(onClick)
     }
 end
 
+---Opens the trace export window without undoing an explicit stopped state.
 ---@param trace QuestieTraceCore
 function QuestieTraceMenu.ShowExportWindow(trace)
     local wasRunning = getIsRunning(trace)
@@ -87,6 +92,7 @@ function QuestieTraceMenu.ShowExportWindow(trace)
     end
 end
 
+---Synchronizes a dropdown button with QuestieTrace's actual capture state.
 ---@param button Button
 ---@param trace QuestieTraceCore
 function QuestieTraceMenu.RefreshButton(button, trace)
@@ -102,6 +108,7 @@ function QuestieTraceMenu.RefreshButton(button, trace)
     end
 end
 
+---Starts or stops QuestieTrace from the menu.
 ---@param trace QuestieTraceCore
 function QuestieTraceMenu.Toggle(trace)
     local status = trace.GetStatusData()
