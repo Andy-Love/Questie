@@ -1,8 +1,6 @@
 ---@class QuestieTraceMenu
 local QuestieTraceMenu = QuestieLoader:CreateModule("QuestieTraceMenu")
 
----@type l10n
-local l10n = QuestieLoader:ImportModule("l10n")
 local TRACE_RUNNING_COLOR = { 0.25, 1.0, 0.25 }
 local TRACE_STOPPED_COLOR = { 1.0, 0.25, 0.25 }
 
@@ -58,7 +56,7 @@ function QuestieTraceMenu.Build(onClick)
     end
 
     return {
-        text = l10n("QuestieTrace"),
+        text = "QuestieTrace",
         func = function(button, _, _, _, clickButton)
             onClick(trace, clickButton)
             if clickButton == "RightButton" then
@@ -109,11 +107,11 @@ function QuestieTraceMenu.Toggle(trace)
     local status = trace.GetStatusData()
     if status.isRunning then
         trace.StopCapture()
-        Questie:Print(l10n("Recording stopped"))
+        Questie:Print("Recording stopped")
     else
         -- Preserve a stopped session before starting the next one.
         trace.SaveCapture()
         trace.StartCapture()
-        Questie:Print(l10n("Recording started..."))
+        Questie:Print("Recording started...")
     end
 end

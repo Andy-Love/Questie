@@ -319,8 +319,6 @@ Localization files are in `Localization/`.
     },
 ```
 
-- Every AI generated translation line must end with a `-- 🤖` comment, so human translators can review them.
-
 ## Coding specifics
 
 - Never use `coroutine.running()` to guard `coroutine.yield()` calls. If code is as expensive that it needs yielding, every caller should acknowledge that and use the ThreadLib to
