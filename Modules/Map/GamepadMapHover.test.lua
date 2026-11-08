@@ -160,6 +160,106 @@ describe("GamepadMapHover", function()
         assert.spy(MapIconTooltip.ShowOnTooltip).was.called(2)
     end)
 
+    it("should rebuild the tooltip of the hovered icon when its quest is refreshed", function()
+        local pin = CreatePin(100, 100)
+        pin.icon.data = {Id = 5}
+        pins = {pin}
+        _GamepadMapHover.Update()
+
+        GamepadMapHover.RefreshQuest(5)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.called(2)
+        assert.are.equal(pin.icon, GamepadMapHover.GetHoveredIcon())
+        assert.are_same({pin.icon.data}, resetData)
+    end)
+
+    it("should only hide the tooltip when the cursor moved off the icon since the last update", function()
+        local pin = CreatePin(100, 100)
+        pin.icon.data = {Id = 5}
+        pins = {pin}
+        _GamepadMapHover.Update()
+
+        cursorX = 200
+        GamepadMapHover.RefreshQuest(5)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.called(1)
+        assert.is_nil(GamepadMapHover.GetHoveredIcon())
+        assert.spy(tooltip.Hide).was.called()
+    end)
+
+    it("should only hide the tooltip when the map closed since the last update", function()
+        local pin = CreatePin(100, 100)
+        pin.icon.data = {Id = 5}
+        pins = {pin}
+        _GamepadMapHover.Update()
+
+        mapShown = false
+        GamepadMapHover.RefreshQuest(5)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.called(1)
+        assert.is_nil(GamepadMapHover.GetHoveredIcon())
+    end)
+
+    it("should only hide the tooltip when tooltips were turned off since the last update", function()
+        local pin = CreatePin(100, 100)
+        pin.icon.data = {Id = 5}
+        pins = {pin}
+        _GamepadMapHover.Update()
+
+        tooltipsDisabled = true
+        GamepadMapHover.RefreshQuest(5)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.called(1)
+        assert.is_nil(GamepadMapHover.GetHoveredIcon())
+    end)
+
+    it("should only hide the tooltip when the hovered icon was reused for other data", function()
+        local pin = CreatePin(100, 100)
+        local oldData = {Id = 5}
+        pin.icon.data = oldData
+        pins = {pin}
+        _GamepadMapHover.Update()
+
+        pin.icon.data = {Id = 5}
+        GamepadMapHover.RefreshQuest(5)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.called(1)
+        assert.is_nil(GamepadMapHover.GetHoveredIcon())
+        assert.are_same({oldData}, resetData)
+        assert.spy(tooltip.Hide).was.called()
+    end)
+
+    it("should only hide the tooltip when the hovered icon was unloaded", function()
+        local pin = CreatePin(100, 100)
+        pin.icon.data = {Id = 5}
+        pins = {pin}
+        _GamepadMapHover.Update()
+
+        pin.icon.data = nil
+        GamepadMapHover.RefreshQuest(5)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.called(1)
+        assert.is_nil(GamepadMapHover.GetHoveredIcon())
+    end)
+
+    it("should keep the tooltip of the hovered icon when another quest is refreshed", function()
+        local pin = CreatePin(100, 100)
+        pin.icon.data = {Id = 5}
+        pins = {pin}
+        _GamepadMapHover.Update()
+
+        GamepadMapHover.RefreshQuest(6)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.called(1)
+        assert.spy(tooltip.Hide).was.not_called()
+    end)
+
+    it("should not show a tooltip when a quest is refreshed without a hovered icon", function()
+        GamepadMapHover.RefreshQuest(5)
+
+        assert.spy(MapIconTooltip.ShowOnTooltip).was.not_called()
+    end)
+
     it("should hide the tooltip when the map closes", function()
         pins = {CreatePin(100, 100)}
         _GamepadMapHover.Update()

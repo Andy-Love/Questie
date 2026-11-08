@@ -21,6 +21,8 @@ describe("QuestiePartyObjectives", function()
     local QuestiePlayer
     ---@type CommsVisibility
     local CommsVisibility
+    ---@type GamepadMapHover
+    local GamepadMapHover
 
     local QUEST_ID = 42
     -- Mirrors MAX_PARTY_ICONS in the module, which is a file-local constant. Keep in sync.
@@ -96,6 +98,11 @@ describe("QuestiePartyObjectives", function()
         end
     end
 
+    -- A member finished another objective, so the quest's icons must be redrawn
+    local function givenFinishedObjective(questId)
+        QuestieComms.remoteQuestLogs[questId].Partymember[2] = {finished = true, type = "m", id = 101}
+    end
+
     ---@param spawnCount number
     local function givenPartyQuest(spawnCount)
         givenPartyQuests({[QUEST_ID] = spawnCount})
@@ -133,6 +140,8 @@ describe("QuestiePartyObjectives", function()
         ThreadLib = QuestieLoader:ImportModule("ThreadLib")
         QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
         CommsVisibility = QuestieLoader:ImportModule("CommsVisibility")
+        GamepadMapHover = QuestieLoader:ImportModule("GamepadMapHover")
+        GamepadMapHover.RefreshQuest = spy.new(function() end)
 
         QuestiePlayer.GetGroupType = function() return "party" end
         CommsVisibility.ShouldShowPartyObjective = function() return true end
@@ -309,6 +318,7 @@ describe("QuestiePartyObjectives", function()
             -- icons it released before the redraw is charged again. Without the refund the quest
             -- prices itself out: 300 already spent + 300 requested exceeds the ceiling, so the
             -- redraw is refused and the quest silently loses its icons.
+            givenFinishedObjective(QUEST_ID)
             QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
             runPendingThreads()
 
@@ -345,6 +355,7 @@ describe("QuestiePartyObjectives", function()
             -- Nothing cached yet, so the first draw builds the spawn list itself.
             assert.same({false}, spawnListPrefilled)
 
+            givenFinishedObjective(QUEST_ID)
             QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
             runPendingThreads()
 
@@ -376,6 +387,351 @@ describe("QuestiePartyObjectives", function()
 
             -- Both objectives adopted: 2 frames each.
             assert.spy(QuestieFramePool.UnloadFrame).was.called(4)
+        end)
+    end)
+
+    describe("incremental redraw", function()
+        -- A second needed objective, drawn from the database like the first one
+        local function givenSecondObjective()
+            QuestieComms.remoteQuestLogs[QUEST_ID].Partymember[2] = {finished = false, type = "m", id = 101}
+            QuestieDB.GetQuest = function()
+                return {
+                    Id = QUEST_ID,
+                    Color = {1, 1, 1},
+                    ObjectiveData = {
+                        [1] = {Type = "monster", Id = 100, Text = "Kill things"},
+                        [2] = {Type = "monster", Id = 101, Text = "Kill other things"},
+                    },
+                    SpecialObjectives = {},
+                }
+            end
+        end
+
+        it("should not redraw a quest when only the progress counts changed", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            QuestieComms.remoteQuestLogs[QUEST_ID].Partymember[1].fulfilled = 3
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(1, #drawnObjectives)
+            assert.spy(QuestieFramePool.UnloadFrame).was.not_called()
+        end)
+
+        it("should not redraw a quest when another member reports the same needed objectives", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            QuestieComms.remoteQuestLogs[QUEST_ID]["Othermember"] = {[1] = {finished = false, type = "m", id = 100}}
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(1, #drawnObjectives)
+        end)
+
+        it("should redraw a quest whose icons were unloaded by someone else", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            -- QuestieMap:UnloadQuestFrames of the local player's own quest unloads every icon of the quest id
+            -- and forgets the objective's spawns
+            local objective = drawnObjectives[1]
+            objective.AlreadySpawned[1].mapRefs[1].data = nil
+            objective.AlreadySpawned = {}
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(2, #drawnObjectives)
+        end)
+
+        it("should redraw a quest when one of its icons was unloaded by someone else", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            drawnObjectives[1].AlreadySpawned[1].minimapRefs[2].data = nil
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(2, #drawnObjectives)
+        end)
+
+        it("should redraw a quest whose objective text arrived while the group was too large", function()
+            givenPartyQuestWithUnloadedText()
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            local onLoaded = pendingObjectiveLoadSuccess
+            _G.GetNumGroupMembers = function() return 12 end
+            onLoaded({{text = "Wolf slain: 1/5", type = "monster"}})
+            runPendingThreads()
+            _G.GetNumGroupMembers = function() return 2 end
+            pendingObjectiveLoadSuccess = nil
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+
+            assert.is_not_nil(pendingObjectiveLoadSuccess)
+        end)
+
+        it("should redraw a quest whose objective text timed out while the group was too large", function()
+            givenPartyQuestWithUnloadedText()
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            local onFailed = pendingObjectiveLoadFailure
+            _G.GetNumGroupMembers = function() return 12 end
+            onFailed()
+            runPendingThreads()
+            _G.GetNumGroupMembers = function() return 2 end
+            pendingObjectiveLoadSuccess = nil
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+
+            assert.is_not_nil(pendingObjectiveLoadSuccess)
+        end)
+
+        it("should refresh an open gamepad tooltip instead of redrawing when only the progress changed", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            assert.spy(GamepadMapHover.RefreshQuest).was.not_called()
+
+            QuestieComms.remoteQuestLogs[QUEST_ID].Partymember[1].fulfilled = 3
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.spy(GamepadMapHover.RefreshQuest).was.called_with(QUEST_ID)
+            assert.is_equal(1, #drawnObjectives)
+        end)
+
+        it("should redraw a quest when an objective got finished", function()
+            givenPartyQuest(2)
+            givenSecondObjective()
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            assert.is_equal(2, #drawnObjectives)
+
+            QuestieComms.remoteQuestLogs[QUEST_ID].Partymember[2].finished = true
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            -- Both objectives' map and minimap frames, then only the first one is drawn again
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(8)
+            assert.is_equal(3, #drawnObjectives)
+        end)
+
+        it("should redraw a quest when an objective's target changed", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            QuestieComms.remoteQuestLogs[QUEST_ID].Partymember[1].id = 101
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(4)
+            assert.is_equal(2, #drawnObjectives)
+            local redrawn = drawnObjectives[2].AlreadySpawned[1]
+            assert.is_equal(2, #redrawn.mapRefs)
+            assert.is_equal(2, #redrawn.minimapRefs)
+        end)
+
+        it("should clear a quest's icons when the local player accepted it", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            QuestLogCache.questLog_DO_NOT_MODIFY = {[QUEST_ID] = {}}
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(4)
+        end)
+
+        it("should clear a quest's icons when its only member went offline", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            _G.UnitIsConnected = function() return false end
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(4)
+        end)
+
+        it("should retry a quest that the icon budget refused", function()
+            local otherQuest = QUEST_ID + 1
+            givenPartyQuests({[QUEST_ID] = MAX_PARTY_ICONS, [otherQuest] = 2})
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            QuestiePartyObjectives:ScheduleUpdate(otherQuest)
+            runPendingThreads()
+
+            QuestieComms.remoteQuestLogs[QUEST_ID] = nil
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            QuestiePartyObjectives:ScheduleUpdate(otherQuest)
+            runPendingThreads()
+
+            assert.is_equal(2, #drawnObjectives)
+        end)
+
+        it("should redraw a quest whose draw was cut short by the icon budget", function()
+            givenPartyQuest(MAX_PARTY_ICONS)
+            givenSecondObjective()
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(4, #drawnObjectives)
+        end)
+
+        it("should redraw a quest whose objective text failed to load", function()
+            givenPartyQuestWithUnloadedText()
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            pendingObjectiveLoadFailure()
+            runPendingThreads()
+            pendingObjectiveLoadSuccess = nil
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            assert.is_not_nil(pendingObjectiveLoadSuccess)
+            pendingObjectiveLoadSuccess({{text = "Wolf slain: 1/5", type = "monster"}})
+            runPendingThreads()
+
+            assert.is_equal(2, #drawnObjectives)
+            assert.is_equal("Wolf slain", drawnObjectives[2].Description)
+        end)
+
+        it("should redraw a quest whose draw was dropped while the group was too large", function()
+            givenPartyQuest(2)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            _G.GetNumGroupMembers = function() return 12 end
+            runPendingThreads()
+            _G.GetNumGroupMembers = function() return 2 end
+
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+
+            assert.is_equal(1, #drawnObjectives)
+        end)
+    end)
+
+    describe("unloading", function()
+        local pendingTimers
+
+        local function deferTimers()
+            pendingTimers = {}
+            _G.C_Timer = {After = function(_, callback) pendingTimers[#pendingTimers + 1] = callback end}
+        end
+
+        local function runNextFrame()
+            local queued = pendingTimers
+            pendingTimers = {}
+            for _, callback in ipairs(queued) do
+                callback()
+            end
+        end
+
+        it("should unload the icons of a cleared group over several frames", function()
+            givenPartyQuest(60)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            deferTimers()
+
+            QuestiePartyObjectives:Clear()
+            assert.spy(QuestieFramePool.UnloadFrame).was.not_called()
+
+            runNextFrame()
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(50)
+
+            runNextFrame()
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(100)
+
+            runNextFrame()
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(120)
+            assert.is_equal(0, #pendingTimers)
+        end)
+
+        it("should unload the icons of a redrawn quest over several frames", function()
+            givenPartyQuest(60)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            deferTimers()
+
+            givenFinishedObjective(QUEST_ID)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            -- The update's debounce timer
+            runNextFrame()
+            runNextFrame()
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(50)
+
+            runNextFrame()
+            runNextFrame()
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(120)
+        end)
+
+        it("should not unload an icon that was reused before its turn", function()
+            givenPartyQuest(60)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            deferTimers()
+
+            QuestiePartyObjectives:Clear()
+            drawnObjectives[1].AlreadySpawned[1].minimapRefs[60].data = {someoneElse = true}
+            runNextFrame()
+            runNextFrame()
+            runNextFrame()
+
+            assert.spy(QuestieFramePool.UnloadFrame).was.called(119)
+        end)
+
+        it("should drop the finished queue even when its last icon failed to unload", function()
+            givenPartyQuest(1)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            deferTimers()
+            local lastIcon = drawnObjectives[1].AlreadySpawned[1].minimapRefs[1]
+            local watcher = setmetatable({lastIcon}, {__mode = "v"})
+            QuestieFramePool.UnloadFrame = function(_, icon)
+                if icon == lastIcon then
+                    error("broken frame")
+                end
+            end
+
+            QuestiePartyObjectives:Clear()
+            runNextFrame()
+            lastIcon = nil
+            drawnObjectives = {}
+            collectgarbage()
+            collectgarbage()
+
+            assert.is_nil(watcher[1])
+        end)
+
+        it("should keep unloading the remaining icons after one failed", function()
+            givenPartyQuest(60)
+            QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
+            runPendingThreads()
+            deferTimers()
+            local failingIcon = drawnObjectives[1].AlreadySpawned[1].mapRefs[1]
+            local unloaded = 0
+            QuestieFramePool.UnloadFrame = function(_, icon)
+                if icon == failingIcon then
+                    error("broken frame")
+                end
+                unloaded = unloaded + 1
+            end
+
+            QuestiePartyObjectives:Clear()
+            runNextFrame()
+            runNextFrame()
+            runNextFrame()
+            runNextFrame()
+
+            assert.is_equal(119, unloaded)
         end)
     end)
 
@@ -420,6 +776,7 @@ describe("QuestiePartyObjectives", function()
                 onSuccess({{text = "Protect the ritual: 0/1", type = "monster"}})
             end
             drawnObjectives = {}
+            givenFinishedObjective(QUEST_ID)
             QuestiePartyObjectives:ScheduleUpdate(QUEST_ID)
             runPendingThreads()
 
