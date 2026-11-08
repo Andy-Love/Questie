@@ -16,15 +16,15 @@ local nameplateOptionsLocales = {
     },
     ["Nameplate Options"] = {
         ["enUS"] = true,
-        ["deDE"] = "Namensplaketten-Optionen", -- 🤖 Gemini Flash 3.8
-        ["esES"] = "Opciones de placas de nombre", -- 🤖 Gemini Flash 3.8
-        ["esMX"] = "Opciones de placas de nombre", -- 🤖 Gemini Flash 3.8
-        ["frFR"] = "Options des plaques de nom", -- 🤖 Gemini Flash 3.8
-        ["koKR"] = "이름표 설정", -- 🤖 Gemini Flash 3.8
-        ["ptBR"] = "Opções das placas de nome", -- 🤖 Gemini Flash 3.8
-        ["ruRU"] = "Настройки индикаторов здоровья", -- 🤖 Gemini Flash 3.8
-        ["zhCN"] = "姓名板选项", -- 🤖 Gemini Flash 3.8
-        ["zhTW"] = "名條選項", -- 🤖 Gemini Flash 3.8
+        ["deDE"] = "Namensplaketten-Optionen", -- 🤖
+        ["esES"] = "Opciones de placas de nombre", -- 🤖
+        ["esMX"] = "Opciones de placas de nombre", -- 🤖
+        ["frFR"] = "Options des plaques de nom", -- 🤖
+        ["koKR"] = "이름표 설정", -- 🤖
+        ["ptBR"] = "Opções das placas de nome", -- 🤖
+        ["ruRU"] = "Настройки индикаторов здоровья", -- 🤖
+        ["zhCN"] = "姓名板选项", -- 🤖
+        ["zhTW"] = "名條選項", -- 🤖
     },
     ["Nameplate Icon Options"] = {
         ["enUS"] = true,
