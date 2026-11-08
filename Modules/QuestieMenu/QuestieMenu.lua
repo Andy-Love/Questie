@@ -511,7 +511,7 @@ function QuestieMenu:Show(hideDelay)
             QuestieTraceMenu.Toggle(trace)
         else
             QuestieMenu:Hide()
-            trace.ShowExportWindow()
+            QuestieTraceMenu.ShowExportWindow(trace)
         end
     end)
     if traceMenu then

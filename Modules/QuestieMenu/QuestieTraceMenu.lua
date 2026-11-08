@@ -5,6 +5,9 @@ local QuestieTraceMenu = QuestieLoader:CreateModule("QuestieTraceMenu")
 local l10n = QuestieLoader:ImportModule("l10n")
 local TRACE_RUNNING_COLOR = { 0.25, 1.0, 0.25 }
 local TRACE_STOPPED_COLOR = { 1.0, 0.25, 0.25 }
+
+---@param trace QuestieTraceCore
+---@return boolean isRunning
 local function getIsRunning(trace)
     if type(trace.GetStatusData) ~= "function" then
         return false
@@ -14,6 +17,8 @@ local function getIsRunning(trace)
     return ok and type(status) == "table" and status.isRunning == true
 end
 
+---@param button Button
+---@param isRunning boolean
 local function tintButton(button, isRunning)
     if not button then
         return
@@ -32,6 +37,18 @@ local function tintButton(button, isRunning)
     uncheck:SetTexCoord(0.0, 0.5, 0.5, 1.0)
 end
 
+---@param button Button
+---@param trace QuestieTraceCore
+local function deferRefresh(button, trace)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, function()
+            QuestieTraceMenu.RefreshButton(button, trace)
+        end)
+    else
+        QuestieTraceMenu.RefreshButton(button, trace)
+    end
+end
+
 ---@param onClick fun(trace: QuestieTraceCore, button: string?)
 ---@return table?
 function QuestieTraceMenu.Build(onClick)
@@ -45,7 +62,9 @@ function QuestieTraceMenu.Build(onClick)
         func = function(button, _, _, _, clickButton)
             onClick(trace, clickButton)
             if clickButton == "RightButton" then
-                QuestieTraceMenu.RefreshButton(button, trace)
+                -- LibUIDropDownMenu changes the check textures before calling this callback. Defer
+                -- the refresh so a refused StartCapture cannot leave the menu falsely green.
+                deferRefresh(button, trace)
             end
         end,
         checked = function(button)
@@ -57,6 +76,17 @@ function QuestieTraceMenu.Build(onClick)
         keepShownOnClick = true,
         isNotRadio = false,
     }
+end
+
+---@param trace QuestieTraceCore
+function QuestieTraceMenu.ShowExportWindow(trace)
+    local wasRunning = getIsRunning(trace)
+    trace.ShowExportWindow()
+    -- QuestieTrace rotates the session after exporting and may auto-start a new one. Preserve an
+    -- explicit stop made before this menu click without changing normal export behavior.
+    if not wasRunning and getIsRunning(trace) and type(trace.StopCapture) == "function" then
+        trace.StopCapture()
+    end
 end
 
 ---@param button Button

@@ -10,11 +10,15 @@ describe("QuestieTraceMenu", function()
                 SetVertexColor = function() end,
                 SetTexture = function() end,
                 SetTexCoord = function() end,
+                SetShown = function() end,
             }
         end
         return {
             Check = makeTexture(),
             UnCheck = makeTexture(),
+            SetShown = function() end,
+            LockHighlight = function() end,
+            UnlockHighlight = function() end,
         }
     end
 
@@ -110,6 +114,43 @@ describe("QuestieTraceMenu", function()
 
         local entry = QuestieTraceMenu.Build(function() end)
         assert.is_false(entry.checked(makeButton()))
+    end)
+
+    it("refreshes the indicator after a refused right-click start", function()
+        local originalTimer = _G.C_Timer
+        local deferred
+        _G.C_Timer = {After = function(_, callback) deferred = callback end}
+        local running = false
+        local trace = {
+            GetStatusData = function() return {isRunning = running} end,
+            StartCapture = function() end,
+            ShowExportWindow = function() end,
+        }
+        _G.QuestieTraceCore = trace
+        local entry = QuestieTraceMenu.Build(function(currentTrace, button)
+            if button == "RightButton" then currentTrace.StartCapture() end
+        end)
+        local button = makeButton()
+        button.checked = true
+        entry.func(button, nil, nil, true, "RightButton")
+        assert.is_true(button.checked)
+        deferred()
+        assert.is_false(button.checked)
+        _G.C_Timer = originalTimer
+    end)
+
+    it("keeps an explicitly stopped capture stopped after export", function()
+        local running = false
+        local stopped = 0
+        local trace = {
+            GetStatusData = function() return {isRunning = running} end,
+            ShowExportWindow = function() running = true end,
+            StopCapture = function() running = false; stopped = stopped + 1 end,
+        }
+
+        QuestieTraceMenu.ShowExportWindow(trace)
+        assert.are_equal(1, stopped)
+        assert.is_false(running)
     end)
 
     it("stops a running capture", function()
