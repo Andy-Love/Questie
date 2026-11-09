@@ -97,6 +97,17 @@ function QuestieLib:PrintDifficultyColor(level, text, isRepeatableQuest, isEvent
     return _GetDifficultyColor(level, questId).hex .. text .. "|r"
 end
 
+---Builds Blizzard's own quest link. Forever accepts it for any quest ID, while GetQuestLink only knows quests in the log.
+---@param questId QuestId
+---@param name string
+---@param level Level
+---@param showLevel boolean? Prefix the name with the quest level
+---@return string
+function QuestieLib.GetNativeQuestLink(questId, name, level, showLevel)
+    local text = showLevel and ("[" .. level .. "] " .. name) or name
+    return "|cffffff00|Hquest:" .. questId .. ":0|h[" .. text .. "]|h|r"
+end
+
 ---Returns difficulty RGB only; quest-type color overrides belong to PrintDifficultyColor.
 ---@param level Level Fallback quest level; -1 uses the player's level.
 ---@param questId QuestId? Uses native difficulty on Forever when cached and supported; otherwise uses level.

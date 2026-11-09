@@ -51,6 +51,10 @@ function QuestieLink.GetQuestLinkStringById(questId)
     end
     local questLevel, _ = QuestieLib.GetEffectiveQuestLevel(questId)
 
+    if Questie.IsForever then
+        return QuestieLib.GetNativeQuestLink(questId, questName, questLevel, Questie.db.profile.trackerShowQuestLevel)
+    end
+
     if Questie.db.profile.trackerShowQuestLevel then
         return "[[" .. tostring(questLevel) .. "] " .. questName .. " (" .. tostring(questId) .. ")]"
     else

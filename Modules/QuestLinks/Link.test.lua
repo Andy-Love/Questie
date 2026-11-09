@@ -123,6 +123,42 @@ describe("QuestieLink", function()
 
             assert.is_nil(result)
         end)
+
+        it("should return Blizzard's native quest link on Forever", function()
+            Questie.IsForever = true
+            Questie.db.profile.trackerShowQuestLevel = false
+            QuestieDB.QueryQuestSingle = function()
+                return "Test Quest"
+            end
+
+            local result = QuestieLink.GetQuestLinkStringById(1234)
+
+            assert.are_same("|cffffff00|Hquest:1234:0|h[Test Quest]|h|r", result)
+        end)
+
+        it("should put the quest level into the native Forever link when trackerShowQuestLevel is true", function()
+            Questie.IsForever = true
+            Questie.db.profile.trackerShowQuestLevel = true
+            QuestieDB.QueryQuestSingle = function()
+                return "Test Quest"
+            end
+            QuestieLib.GetEffectiveQuestLevel = function()
+                return 15
+            end
+
+            local result = QuestieLink.GetQuestLinkStringById(1234)
+
+            assert.are_same("|cffffff00|Hquest:1234:0|h[[15] Test Quest]|h|r", result)
+        end)
+
+        it("should still return nil on Forever when the quest is not in the database", function()
+            Questie.IsForever = true
+            QuestieDB.QueryQuestSingle = function()
+                return nil
+            end
+
+            assert.is_nil(QuestieLink.GetQuestLinkStringById(91899))
+        end)
     end)
 
     describe("GetQuestHyperLink", function()

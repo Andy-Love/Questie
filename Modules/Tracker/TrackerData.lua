@@ -284,6 +284,9 @@ end
 ---@param displayQuest TrackerQuest
 ---@return string
 function TrackerData.GetQuestLink(displayQuest)
+    if Questie.IsForever then
+        return QuestieLib.GetNativeQuestLink(displayQuest.Id, displayQuest.name, displayQuest.level, Questie.db.profile.trackerShowQuestLevel)
+    end
     local name = displayQuest.name .. " (" .. displayQuest.Id .. ")]"
     if Questie.db.profile.trackerShowQuestLevel then
         return "[[" .. displayQuest.level .. "] " .. name

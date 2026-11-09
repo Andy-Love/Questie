@@ -906,6 +906,16 @@ describe("TrackerData", function()
         assert.are.equal("[[2] Nibbled-On Book (91741)]", TrackerData.GetQuestLink(displayQuest))
     end)
 
+    it("builds a native quest link on Forever", function()
+        local originalForever = Questie.IsForever
+        Questie.IsForever = true
+        local displayQuest = TrackerData.RefreshQuest(91741)
+        Questie.db.profile.trackerShowQuestLevel = true
+
+        assert.are.equal("|cffffff00|Hquest:91741:0|h[[2] Nibbled-On Book]|h|r", TrackerData.GetQuestLink(displayQuest))
+        Questie.IsForever = originalForever
+    end)
+
     describe("layout revision", function()
         local trackerUtils, originalTagIds, originalGetQuestTimers
 
